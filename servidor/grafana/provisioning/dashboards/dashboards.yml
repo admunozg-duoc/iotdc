@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: IOTDC
+    folder: IOTDC
+    type: file
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards

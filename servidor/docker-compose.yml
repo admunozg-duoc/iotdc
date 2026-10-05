@@ -1,0 +1,107 @@
+name: iotdc
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: iotdc_config
+      POSTGRES_USER: iotdc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      GRAFANA_PG_PASSWORD: ${GRAFANA_PG_PASSWORD}
+      DISPOSITIVO1_TOKEN: ${DISPOSITIVO1_TOKEN}
+      DISPOSITIVO2_TOKEN: ${DISPOSITIVO2_TOKEN}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iotdc -d iotdc_config"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  influxdb:
+    image: influxdb:2.7
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN}
+    volumes:
+      - influx_data:/var/lib/influxdb2
+      - influx_config:/etc/influxdb2
+    ports:
+      # Solo local: acceder vía túnel SSH
+      - "127.0.0.1:8086:8086"
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    environment:
+      PG_DSN: postgresql://iotdc:${POSTGRES_PASSWORD}@postgres:5432/iotdc_config
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: ${INFLUX_TOKEN}
+      INFLUX_ORG: ${INFLUX_ORG}
+      INFLUX_BUCKET: ${INFLUX_BUCKET}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/salud')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/iotdc-ambiente.json
+      INFLUX_ORG: ${INFLUX_ORG}
+      INFLUX_BUCKET: ${INFLUX_BUCKET}
+      INFLUX_TOKEN: ${INFLUX_TOKEN}
+      GRAFANA_PG_PASSWORD: ${GRAFANA_PG_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Imita el firmware del Arduino mientras no exista el prototipo.
+  # Detener con: docker compose stop simulador
+  simulador:
+    build: ./simulador
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:8000
+      SIM_DISPOSITIVOS: DC-SENS-001:${DISPOSITIVO1_TOKEN}:22.0,DC-SENS-002:${DISPOSITIVO2_TOKEN}:24.5
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pg_data:
+  influx_data:
+  influx_config:
+  grafana_data:

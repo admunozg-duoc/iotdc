@@ -1,0 +1,3 @@
+# Secretos: nunca subir
+servidor/.env
+arduino/**/arduino_secrets.h

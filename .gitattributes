@@ -1,0 +1,2 @@
+# Los scripts se ejecutan en Linux: siempre con fin de línea LF
+* text=auto eol=lf

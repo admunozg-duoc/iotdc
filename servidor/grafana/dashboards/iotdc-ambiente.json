@@ -1,0 +1,168 @@
+{
+  "uid": "iotdc-ambiente",
+  "title": "Datacenter - Monitoreo ambiental",
+  "tags": ["iotdc"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "time": { "from": "now-30m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "dispositivo",
+        "label": "Dispositivo",
+        "type": "query",
+        "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"iotdc\", tag: \"dispositivo\", start: -30d)",
+        "definition": "schema.tagValues(dispositivo)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "sort": 1,
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Temperatura",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+      "targets": [{ "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+        "query": "from(bucket: \"iotdc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ambiente\" and r._field == \"temperatura\")\n  |> filter(fn: (r) => contains(value: r.dispositivo, set: ${dispositivo:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": {
+        "unit": "celsius", "decimals": 1, "displayName": "${__field.labels.nombre}",
+        "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "blue", "value": null }, { "color": "green", "value": 18 },
+          { "color": "orange", "value": 27 }, { "color": "red", "value": 32 } ] }
+      }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background", "graphMode": "area", "textMode": "value_and_name", "justifyMode": "auto", "orientation": "auto" }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Humedad relativa",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+      "targets": [{ "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+        "query": "from(bucket: \"iotdc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ambiente\" and r._field == \"humedad\")\n  |> filter(fn: (r) => contains(value: r.dispositivo, set: ${dispositivo:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": {
+        "unit": "humidity", "decimals": 1, "displayName": "${__field.labels.nombre}",
+        "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "orange", "value": null }, { "color": "green", "value": 20 },
+          { "color": "orange", "value": 60 }, { "color": "red", "value": 80 } ] }
+      }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background", "graphMode": "area", "textMode": "value_and_name", "justifyMode": "auto", "orientation": "auto" }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Polvo en suspensión (PM2.5)",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+      "targets": [{ "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+        "query": "from(bucket: \"iotdc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ambiente\" and r._field == \"polvo\")\n  |> filter(fn: (r) => contains(value: r.dispositivo, set: ${dispositivo:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": {
+        "unit": "conμgm3", "decimals": 1, "displayName": "${__field.labels.nombre}",
+        "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "orange", "value": 25 }, { "color": "red", "value": 50 } ] }
+      }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background", "graphMode": "area", "textMode": "value_and_name", "justifyMode": "auto", "orientation": "auto" }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Punto de rocío",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+      "targets": [{ "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+        "query": "from(bucket: \"iotdc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ambiente\" and r._field == \"punto_rocio\")\n  |> filter(fn: (r) => contains(value: r.dispositivo, set: ${dispositivo:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": {
+        "unit": "celsius", "decimals": 1, "displayName": "${__field.labels.nombre}",
+        "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "blue", "value": null }, { "color": "green", "value": -9 },
+          { "color": "orange", "value": 15 }, { "color": "red", "value": 17 } ] }
+      }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background", "graphMode": "area", "textMode": "value_and_name", "justifyMode": "auto", "orientation": "auto" }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Temperatura (°C) — recomendado ASHRAE 18–27 °C",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+      "targets": [{ "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+        "query": "from(bucket: \"iotdc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ambiente\" and r._field == \"temperatura\")\n  |> filter(fn: (r) => contains(value: r.dispositivo, set: ${dispositivo:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": {
+        "unit": "celsius", "decimals": 1, "displayName": "${__field.labels.nombre}",
+        "color": { "mode": "palette-classic" },
+        "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": { "mode": "dashed" } },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "transparent", "value": null }, { "color": "blue", "value": 18 }, { "color": "red", "value": 27 } ] }
+      }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Humedad relativa (%) — recomendado ≤ 60 %",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+      "targets": [{ "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+        "query": "from(bucket: \"iotdc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ambiente\" and r._field == \"humedad\")\n  |> filter(fn: (r) => contains(value: r.dispositivo, set: ${dispositivo:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": {
+        "unit": "humidity", "decimals": 1, "displayName": "${__field.labels.nombre}",
+        "color": { "mode": "palette-classic" },
+        "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": { "mode": "dashed" } },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "transparent", "value": null }, { "color": "orange", "value": 20 }, { "color": "red", "value": 60 } ] }
+      }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Polvo en suspensión PM2.5 (µg/m³) — máximo 25",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+      "targets": [{ "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+        "query": "from(bucket: \"iotdc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ambiente\" and r._field == \"polvo\")\n  |> filter(fn: (r) => contains(value: r.dispositivo, set: ${dispositivo:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": {
+        "unit": "conμgm3", "decimals": 1, "min": 0, "displayName": "${__field.labels.nombre}",
+        "color": { "mode": "palette-classic" },
+        "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": { "mode": "dashed" } },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "transparent", "value": null }, { "color": "red", "value": 25 } ] }
+      }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Punto de rocío (°C) — recomendado ASHRAE -9–15 °C",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+      "targets": [{ "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
+        "query": "from(bucket: \"iotdc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ambiente\" and r._field == \"punto_rocio\")\n  |> filter(fn: (r) => contains(value: r.dispositivo, set: ${dispositivo:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": {
+        "unit": "celsius", "decimals": 1, "displayName": "${__field.labels.nombre}",
+        "color": { "mode": "palette-classic" },
+        "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": { "mode": "dashed" } },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "transparent", "value": null }, { "color": "blue", "value": -9 }, { "color": "red", "value": 15 } ] }
+      }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } }
+    },
+    {
+      "id": 9, "type": "table", "title": "Dispositivos registrados (PostgreSQL)",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 21 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "postgres-config" },
+      "targets": [{ "refId": "A", "datasource": { "type": "grafana-postgresql-datasource", "uid": "postgres-config" },
+        "format": "table", "rawQuery": true, "editorMode": "code",
+        "rawSql": "SELECT e.nombre AS \"Empresa\", d.identificador AS \"ID\", d.nombre AS \"Dispositivo\",\n       d.ubicacion AS \"Ubicación\", d.intervalo_envio_seg AS \"Intervalo (s)\", d.firmware AS \"Firmware\",\n       d.ultimo_contacto AS \"Último contacto\",\n       CASE WHEN NOT d.activo THEN 'Deshabilitado'\n            WHEN d.ultimo_contacto > now() - make_interval(secs => d.intervalo_envio_seg * 3) THEN 'En línea'\n            ELSE 'Sin conexión' END AS \"Estado\"\nFROM dispositivos d JOIN empresas e ON e.id = d.empresa_id\nORDER BY d.identificador" }],
+      "fieldConfig": { "defaults": {}, "overrides": [
+        { "matcher": { "id": "byName", "options": "Estado" }, "properties": [
+          { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+          { "id": "mappings", "value": [ { "type": "value", "options": {
+            "En línea": { "color": "green", "index": 0 },
+            "Sin conexión": { "color": "red", "index": 1 },
+            "Deshabilitado": { "color": "gray", "index": 2 } } } ] } ] }
+      ] },
+      "options": { "showHeader": true }
+    }
+  ]
+}
