@@ -18,7 +18,7 @@ Sensor ──PUSH HTTP──▶ API (FastAPI :8000) ──▶ PostgreSQL  (empre
 Todas las variables son opcionales; el equipo envía solo las que mide:
 
 ```json
-{"temperatura": 20.8, "humedad": 55, "punto_rocio": 11.4, "gas": 0.22, "rssi": -33}
+{"temperatura": 20.8, "humedad": 55, "punto_rocio": 11.4, "gas": 420, "rssi": -33}
 ```
 
 | Campo | Unidad | Origen |
@@ -26,7 +26,7 @@ Todas las variables son opcionales; el equipo envía solo las que mide:
 | `temperatura` | °C | DHT11 / SHT31 |
 | `humedad` | % | DHT11 / SHT31 |
 | `punto_rocio` | °C | Calculado con la fórmula de Magnus |
-| `gas` | V | Salida analógica del MQ135 (sube con más gases; no es ppm) |
+| `gas` | ppm | MQ135, estimado como CO₂ equivalente (depende de la calibración en aire limpio) |
 | `polvo` | µg/m³ | PM2.5 del PMS5003 (solo UNO R4) |
 | `rssi` | dBm | Señal WiFi |
 

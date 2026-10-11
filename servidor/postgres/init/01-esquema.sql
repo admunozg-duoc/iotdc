@@ -44,4 +44,4 @@ INSERT INTO variables (codigo, descripcion, unidad) VALUES
     ('humedad',     'Humedad relativa',     '%'),
     ('polvo',       'Polvo en suspensión (PM2.5)', 'µg/m³'),
     ('punto_rocio', 'Punto de rocío',       '°C'),
-    ('gas',         'Gases en el aire (salida del MQ135)', 'V');
+    ('gas',         'Gases en el aire (MQ135, CO2 equivalente)', 'ppm');

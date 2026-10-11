@@ -19,7 +19,7 @@ sudo docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U iotdc -d iotd
 DELETE FROM dispositivos WHERE identificador IN ('DC-SENS-001', 'DC-SENS-002');
 
 INSERT INTO variables (codigo, descripcion, unidad)
-VALUES ('gas', 'Gases en el aire (salida del MQ135)', 'V')
+VALUES ('gas', 'Gases en el aire (MQ135, CO2 equivalente)', 'ppm')
 ON CONFLICT (codigo) DO NOTHING;
 
 INSERT INTO parametros_medicion (dispositivo_id, variable)
