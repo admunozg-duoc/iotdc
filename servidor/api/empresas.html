@@ -17,6 +17,10 @@
   button { padding: 11px 22px; font-size: 16px; border: 0; border-radius: 6px; background: #0b6bcb;
            color: #fff; cursor: pointer; }
   button:disabled { opacity: .6; cursor: default; }
+  button.secundario { background: #e4e7eb; color: #1c2733; }
+  button.peligro { background: #c53030; }
+  td button { padding: 6px 12px; font-size: 14px; margin-right: 6px; }
+  #cancelar { margin-left: 8px; }
   .aviso { padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; font-size: 15px; }
   .ok { background: #e3f6e8; color: #17603a; }
   .error { background: #fde8e8; color: #9b1c1c; }
@@ -34,13 +38,14 @@
     «ID del cliente» del portal de configuración del equipo.</p>
 
   <section>
-    <h2>Registrar una empresa</h2>
+    <h2 id="titulo">Registrar una empresa</h2>
     <div id="aviso" class="aviso" hidden></div>
     <form id="formulario">
       <label>Nombre<input name="nombre" maxlength="120" required></label>
       <label>RUT (opcional)<input name="rut" maxlength="12" placeholder="76.123.456-7"></label>
       <label>Correo de contacto (opcional)<input name="contacto_email" type="email" maxlength="160"></label>
       <button type="submit" id="guardar">Guardar</button>
+      <button type="button" id="cancelar" class="secundario" hidden>Cancelar</button>
     </form>
   </section>
 
@@ -48,7 +53,7 @@
     <h2>Empresas registradas</h2>
     <div class="tabla">
       <table>
-        <thead><tr><th>ID</th><th>Nombre</th><th>RUT</th><th>Correo</th><th>Sensores</th></tr></thead>
+        <thead><tr><th>ID</th><th>Nombre</th><th>RUT</th><th>Correo</th><th>Sensores</th><th>Acciones</th></tr></thead>
         <tbody id="filas"></tbody>
       </table>
     </div>
@@ -60,6 +65,9 @@ const formulario = document.getElementById('formulario');
 const aviso = document.getElementById('aviso');
 const filas = document.getElementById('filas');
 const guardar = document.getElementById('guardar');
+const cancelar = document.getElementById('cancelar');
+const titulo = document.getElementById('titulo');
+let editando = null;  // ID de la empresa en edición, o null si se está registrando una nueva
 
 function mostrarAviso(texto, tipo) {
   aviso.textContent = texto;
@@ -91,9 +99,63 @@ async function cargarEmpresas() {
       if (i === 0) celda.className = 'id';
       fila.appendChild(celda);
     });
+    const acciones = document.createElement('td');
+    acciones.appendChild(boton('Editar', 'secundario', () => empezarEdicion(empresa)));
+    acciones.appendChild(boton('Eliminar', 'peligro', () => eliminarEmpresa(empresa)));
+    fila.appendChild(acciones);
     filas.appendChild(fila);
   }
 }
+
+function boton(texto, clase, accion) {
+  const elemento = document.createElement('button');
+  elemento.type = 'button';
+  elemento.textContent = texto;
+  elemento.className = clase;
+  elemento.addEventListener('click', accion);
+  return elemento;
+}
+
+function empezarEdicion(empresa) {
+  editando = empresa.id;
+  formulario.nombre.value = empresa.nombre;
+  formulario.rut.value = empresa.rut || '';
+  formulario.contacto_email.value = empresa.contacto_email || '';
+  titulo.textContent = `Editar la empresa ${empresa.id}`;
+  guardar.textContent = 'Guardar cambios';
+  cancelar.hidden = false;
+  aviso.hidden = true;
+  formulario.nombre.focus();
+  titulo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function terminarEdicion() {
+  editando = null;
+  formulario.reset();
+  titulo.textContent = 'Registrar una empresa';
+  guardar.textContent = 'Guardar';
+  cancelar.hidden = true;
+}
+
+async function eliminarEmpresa(empresa) {
+  if (!confirm(`¿Eliminar la empresa «${empresa.nombre}» (ID ${empresa.id})? No se puede deshacer.`)) {
+    return;
+  }
+  try {
+    const respuesta = await fetch(`/api/v1/empresas/${empresa.id}`, { method: 'DELETE' });
+    if (respuesta.ok) {
+      if (editando === empresa.id) terminarEdicion();
+      mostrarAviso(`Empresa «${empresa.nombre}» eliminada.`, 'ok');
+      await cargarEmpresas();
+    } else {
+      mostrarAviso(textoError(await respuesta.json()), 'error');
+    }
+  } catch (error) {
+    mostrarAviso('No se pudo conectar con el servidor.', 'error');
+  }
+}
+
+cancelar.addEventListener('click', terminarEdicion);
 
 formulario.addEventListener('submit', async (evento) => {
   evento.preventDefault();
@@ -104,15 +166,16 @@ formulario.addEventListener('submit', async (evento) => {
     datos[campo] = datos[campo].trim() || null;
   }
   try {
-    const respuesta = await fetch('/api/v1/empresas', {
-      method: 'POST',
+    const respuesta = await fetch(editando === null ? '/api/v1/empresas' : `/api/v1/empresas/${editando}`, {
+      method: editando === null ? 'POST' : 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(datos),
     });
     const cuerpo = await respuesta.json();
     if (respuesta.ok) {
-      mostrarAviso(`Empresa «${cuerpo.nombre}» registrada con el ID ${cuerpo.id}.`, 'ok');
-      formulario.reset();
+      const accion = editando === null ? 'registrada con' : 'actualizada; conserva';
+      mostrarAviso(`Empresa «${cuerpo.nombre}» ${accion} el ID ${cuerpo.id}.`, 'ok');
+      terminarEdicion();
       await cargarEmpresas();
     } else {
       mostrarAviso(textoError(cuerpo), 'error');

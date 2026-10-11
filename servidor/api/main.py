@@ -209,19 +209,48 @@ def listar_empresas():
         """).fetchall()
 
 
-@app.post("/api/v1/empresas", status_code=201, dependencies=[Depends(administrador)])
-def crear_empresa(empresa: Empresa):
+def datos_empresa(empresa: Empresa):
     nombre = empresa.nombre.strip()
     if not nombre:
         raise HTTPException(422, "El nombre de la empresa es obligatorio")
-    rut = (empresa.rut or "").strip() or None
-    email = (empresa.contacto_email or "").strip() or None
+    return nombre, (empresa.rut or "").strip() or None, (empresa.contacto_email or "").strip() or None
+
+
+@app.post("/api/v1/empresas", status_code=201, dependencies=[Depends(administrador)])
+def crear_empresa(empresa: Empresa):
     try:
         with pool.connection() as conn:
             return conn.execute("INSERT INTO empresas (nombre, rut, contacto_email) VALUES (%s, %s, %s) "
-                                "RETURNING id, nombre, rut, contacto_email", (nombre, rut, email)).fetchone()
+                                "RETURNING id, nombre, rut, contacto_email", datos_empresa(empresa)).fetchone()
     except UniqueViolation:
         raise HTTPException(409, "Ya existe una empresa con ese nombre o ese RUT")
+
+
+@app.put("/api/v1/empresas/{empresa_id}", dependencies=[Depends(administrador)])
+def editar_empresa(empresa_id: int, empresa: Empresa):
+    try:
+        with pool.connection() as conn:
+            fila = conn.execute("UPDATE empresas SET nombre = %s, rut = %s, contacto_email = %s WHERE id = %s "
+                                "RETURNING id, nombre, rut, contacto_email",
+                                (*datos_empresa(empresa), empresa_id)).fetchone()
+    except UniqueViolation:
+        raise HTTPException(409, "Ya existe una empresa con ese nombre o ese RUT")
+    if fila is None:
+        raise HTTPException(404, f"No existe la empresa con ID {empresa_id}")
+    return fila
+
+
+@app.delete("/api/v1/empresas/{empresa_id}", status_code=204, dependencies=[Depends(administrador)])
+def eliminar_empresa(empresa_id: int):
+    """Solo elimina empresas sin sensores: sus dispositivos no se borran en cascada."""
+    with pool.connection() as conn:
+        sensores = conn.execute("SELECT count(*) AS n FROM dispositivos WHERE empresa_id = %s",
+                                (empresa_id,)).fetchone()["n"]
+        if sensores:
+            raise HTTPException(409, f"La empresa tiene {sensores} sensor(es) registrado(s); "
+                                     "hay que eliminarlos o moverlos antes de borrarla")
+        if conn.execute("DELETE FROM empresas WHERE id = %s", (empresa_id,)).rowcount == 0:
+            raise HTTPException(404, f"No existe la empresa con ID {empresa_id}")
 
 
 @app.post("/api/v1/registrar", status_code=201)

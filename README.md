@@ -64,7 +64,8 @@ Todas las variables son opcionales; el equipo envía solo las que mide:
 
 Abrir `http://IP_PUBLICA:8000/empresas` (usuario `admin` y la contraseña de Grafana). El formulario
 crea la empresa en PostgreSQL y muestra su ID, que es el número que se escribe en «ID del cliente»
-al dar de alta un sensor. La misma página lista las empresas existentes y cuántos sensores tiene cada una.
+al dar de alta un sensor. La misma página lista las empresas existentes con sus sensores y permite
+editarlas o eliminarlas; una empresa con sensores registrados no se puede eliminar.
 
 ## Registrar el sensor ESP32
 
