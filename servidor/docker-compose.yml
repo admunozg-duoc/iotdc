@@ -50,6 +50,7 @@ services:
       INFLUX_ORG: ${INFLUX_ORG}
       INFLUX_BUCKET: ${INFLUX_BUCKET}
       REGISTRO_CLAVE: ${REGISTRO_CLAVE:-}
+      ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     ports:
       - "8000:8000"
     depends_on:

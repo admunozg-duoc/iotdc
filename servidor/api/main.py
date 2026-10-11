@@ -11,11 +11,15 @@ import os
 import re
 import secrets
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import HTMLResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
+from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from pydantic import BaseModel, Field
@@ -29,6 +33,11 @@ BUCKET = os.environ["INFLUX_BUCKET"]
 # Clave compartida que presentan los equipos nuevos para registrarse solos; vacía = alta deshabilitada
 REGISTRO_CLAVE = os.environ.get("REGISTRO_CLAVE", "")
 MAC_VALIDA = re.compile(r"^([0-9A-F]{2}:){5}[0-9A-F]{2}$")
+# Acceso a la página de empresas: usuario admin y la misma contraseña de Grafana; vacía = deshabilitado
+ADMIN_USUARIO = "admin"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+basic = HTTPBasic(realm="IOTDC")
+PAGINA_EMPRESAS = Path(__file__).with_name("empresas.html").read_text(encoding="utf-8")
 
 
 @asynccontextmanager
@@ -46,6 +55,12 @@ class Identificacion(BaseModel):
     firmware: Optional[str] = Field(None, max_length=32)
     ip: Optional[str] = Field(None, max_length=45)
     rssi: Optional[int] = Field(None, ge=-120, le=0)
+
+
+class Empresa(BaseModel):
+    nombre: str = Field(..., min_length=1, max_length=120)
+    rut: Optional[str] = Field(None, max_length=12)
+    contacto_email: Optional[str] = Field(None, max_length=160)
 
 
 class Registro(BaseModel):
@@ -167,6 +182,46 @@ def salud():
     if not influx.ping():
         raise HTTPException(503, "InfluxDB no disponible")
     return {"estado": "ok"}
+
+
+def administrador(credenciales: HTTPBasicCredentials = Depends(basic)):
+    valido = (ADMIN_PASSWORD
+              and hmac.compare_digest(credenciales.username.encode(), ADMIN_USUARIO.encode())
+              and hmac.compare_digest(credenciales.password.encode(), ADMIN_PASSWORD.encode()))
+    if not valido:
+        raise HTTPException(401, "Usuario o contraseña incorrectos",
+                            headers={"WWW-Authenticate": 'Basic realm="IOTDC"'})
+
+
+@app.get("/empresas", response_class=HTMLResponse, dependencies=[Depends(administrador)])
+def pagina_empresas():
+    """Formulario web para registrar empresas y consultar el ID que se usa al dar de alta un sensor."""
+    return PAGINA_EMPRESAS
+
+
+@app.get("/api/v1/empresas", dependencies=[Depends(administrador)])
+def listar_empresas():
+    with pool.connection() as conn:
+        return conn.execute("""
+            SELECT e.id, e.nombre, e.rut, e.contacto_email, count(d.id) AS dispositivos
+            FROM empresas e LEFT JOIN dispositivos d ON d.empresa_id = e.id
+            GROUP BY e.id ORDER BY e.id
+        """).fetchall()
+
+
+@app.post("/api/v1/empresas", status_code=201, dependencies=[Depends(administrador)])
+def crear_empresa(empresa: Empresa):
+    nombre = empresa.nombre.strip()
+    if not nombre:
+        raise HTTPException(422, "El nombre de la empresa es obligatorio")
+    rut = (empresa.rut or "").strip() or None
+    email = (empresa.contacto_email or "").strip() or None
+    try:
+        with pool.connection() as conn:
+            return conn.execute("INSERT INTO empresas (nombre, rut, contacto_email) VALUES (%s, %s, %s) "
+                                "RETURNING id, nombre, rut, contacto_email", (nombre, rut, email)).fetchone()
+    except UniqueViolation:
+        raise HTTPException(409, "Ya existe una empresa con ese nombre o ese RUT")
 
 
 @app.post("/api/v1/registrar", status_code=201)

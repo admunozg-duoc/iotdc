@@ -60,6 +60,12 @@ Todas las variables son opcionales; el equipo envía solo las que mide:
 > Si el repositorio es privado, `git clone` pedirá autenticación: usar un *Personal Access Token*
 > de GitHub como contraseña o instalar `gh` y ejecutar `gh auth login`.
 
+## Registrar una empresa
+
+Abrir `http://IP_PUBLICA:8000/empresas` (usuario `admin` y la contraseña de Grafana). El formulario
+crea la empresa en PostgreSQL y muestra su ID, que es el número que se escribe en «ID del cliente»
+al dar de alta un sensor. La misma página lista las empresas existentes y cuántos sensores tiene cada una.
+
 ## Registrar el sensor ESP32
 
 El ESP32 se registra solo la primera vez que se conecta; no hace falta entrar al servidor.

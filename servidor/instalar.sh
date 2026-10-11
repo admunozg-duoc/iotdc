@@ -61,5 +61,6 @@ echo
 echo "Listo."
 echo "  Grafana: http://$IP:3000  (usuario admin; contraseña: grep GRAFANA_ADMIN_PASSWORD $(pwd)/.env)"
 echo "  API:     http://$IP:8000/docs"
+echo "  Empresas: http://$IP:8000/empresas  (mismo usuario y contraseña de Grafana)"
 echo "  Clave de registro para los sensores: grep REGISTRO_CLAVE $(pwd)/.env"
 echo "  Registro manual (opcional): ./registrar_dispositivo.sh AA:BB:CC:DD:EE:FF \"Nombre\" \"Ubicación\" 60"
