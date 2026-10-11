@@ -47,6 +47,7 @@ class Medicion(BaseModel):
     humedad: Optional[float] = Field(None, ge=0, le=100)
     polvo: Optional[float] = Field(None, ge=0, le=1000)
     punto_rocio: Optional[float] = Field(None, ge=-60, le=60)
+    gas: Optional[float] = Field(None, ge=0, le=5)
     rssi: Optional[int] = Field(None, ge=-120, le=0)
 
 

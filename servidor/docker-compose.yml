@@ -9,8 +9,6 @@ services:
       POSTGRES_USER: iotdc
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       GRAFANA_PG_PASSWORD: ${GRAFANA_PG_PASSWORD}
-      DISPOSITIVO1_TOKEN: ${DISPOSITIVO1_TOKEN}
-      DISPOSITIVO2_TOKEN: ${DISPOSITIVO2_TOKEN}
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -86,18 +84,6 @@ services:
       influxdb:
         condition: service_healthy
       postgres:
-        condition: service_healthy
-
-  # Imita el firmware del Arduino mientras no exista el prototipo.
-  # Detener con: docker compose stop simulador
-  simulador:
-    build: ./simulador
-    restart: unless-stopped
-    environment:
-      API_URL: http://api:8000
-      SIM_DISPOSITIVOS: DC-SENS-001:${DISPOSITIVO1_TOKEN}:22.0,DC-SENS-002:${DISPOSITIVO2_TOKEN}:24.5
-    depends_on:
-      api:
         condition: service_healthy
 
 volumes:

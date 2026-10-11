@@ -1,5 +1,5 @@
 #!/bin/bash
-# Instala el stack IOTDC (PostgreSQL, InfluxDB, API, Grafana y simulador) en una instancia Ubuntu 24.04.
+# Instala el stack IOTDC (PostgreSQL, InfluxDB, API y Grafana) en una instancia Ubuntu 24.04.
 # Se puede ejecutar más de una vez: no reinstala Docker ni sobrescribe el .env existente.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -30,18 +30,16 @@ INFLUX_TOKEN=$(openssl rand -hex 32)
 INFLUX_ORG=iotdc
 INFLUX_BUCKET=iotdc
 GRAFANA_ADMIN_PASSWORD=$(openssl rand -base64 12 | tr -d '/+=')
-DISPOSITIVO1_TOKEN=$(openssl rand -hex 20)
-DISPOSITIVO2_TOKEN=$(openssl rand -hex 20)
 EOF
   chmod 600 .env
 fi
 
 # Los contenedores leen estos archivos con otro usuario
-chmod +x postgres/init/02-datos.sh registrar_dispositivo.sh
-chmod -R a+rX api simulador postgres grafana docker-compose.yml
+chmod +x postgres/init/02-datos.sh registrar_dispositivo.sh quitar_simulacion.sh
+chmod -R a+rX api postgres grafana docker-compose.yml
 
 echo "==> Levantando contenedores"
-sudo docker compose up -d --build
+sudo docker compose up -d --build --remove-orphans
 
 echo "==> Esperando a la API"
 for _ in $(seq 1 60); do

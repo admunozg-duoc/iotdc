@@ -33,10 +33,13 @@ FROM d CROSS JOIN (VALUES
     ('temperatura', 18.0, 27.0),
     ('humedad',     20.0, 60.0),
     ('polvo',       NULL, 25.0),
-    ('punto_rocio', -9.0, 15.0)
+    ('punto_rocio', -9.0, 15.0),
+    ('gas',         NULL, NULL)
 ) AS p(variable, umbral_min, umbral_max);
 EOSQL
 
 echo "Dispositivo $MAC registrado como '$NOMBRE'."
-echo "Copia esta línea en arduino_secrets.h (el token no se vuelve a mostrar):"
+echo "Token del dispositivo (no se vuelve a mostrar): $TOKEN"
+echo "  ESP32: pegarlo en el portal de configuración, campo \"Token del dispositivo\"."
+echo "  UNO R4: copiar esta línea en arduino_secrets.h:"
 echo "#define SECRET_DEVICE_TOKEN \"$TOKEN\""

@@ -1,26 +1,47 @@
 # IOTDC — Monitoreo ambiental de datacenter
 
-Sensor IoT (Arduino UNO R4 WiFi) que mide **temperatura, humedad, polvo en suspensión (PM2.5) y punto de rocío**
-al costado de un servidor, y las envía por PUSH a una API que guarda la configuración en PostgreSQL,
-las mediciones en InfluxDB y las grafica en Grafana.
+Sensor IoT que mide **temperatura, humedad, punto de rocío y gases en el aire** al costado de un servidor,
+y las envía por PUSH a una API que guarda la configuración en PostgreSQL, las mediciones en InfluxDB
+y las grafica en Grafana.
+
+El prototipo en uso es un **ESP32 con DHT11 y MQ135**. El firmware original para Arduino UNO R4 WiFi
+(SHT31 + PMS5003, que mide polvo PM2.5 en vez de gases) sigue en el repositorio y usa la misma API.
 
 ```
-Arduino ──PUSH HTTP──▶ API (FastAPI :8000) ──▶ PostgreSQL  (empresas, dispositivos, parámetros)
-                                           └─▶ InfluxDB    (series de tiempo) ◀── Grafana (:3000)
+Sensor ──PUSH HTTP──▶ API (FastAPI :8000) ──▶ PostgreSQL  (empresas, dispositivos, parámetros)
+                                          └─▶ InfluxDB    (series de tiempo) ◀── Grafana (:3000)
 ```
+
+## Formato de las mediciones
+
+`POST /api/v1/mediciones` con las cabeceras `X-Dispositivo-Id` (MAC del equipo) y `X-Dispositivo-Token`.
+Todas las variables son opcionales; el equipo envía solo las que mide:
+
+```json
+{"temperatura": 20.8, "humedad": 55, "punto_rocio": 11.4, "gas": 0.22, "rssi": -33}
+```
+
+| Campo | Unidad | Origen |
+|---|---|---|
+| `temperatura` | °C | DHT11 / SHT31 |
+| `humedad` | % | DHT11 / SHT31 |
+| `punto_rocio` | °C | Calculado con la fórmula de Magnus |
+| `gas` | V | Salida analógica del MQ135 (sube con más gases; no es ppm) |
+| `polvo` | µg/m³ | PM2.5 del PMS5003 (solo UNO R4) |
+| `rssi` | dBm | Señal WiFi |
 
 ## Estructura
 
 | Ruta | Contenido |
 |---|---|
-| `servidor/docker-compose.yml` | Stack completo: postgres, influxdb, api, grafana y simulador |
+| `servidor/docker-compose.yml` | Stack completo: postgres, influxdb, api y grafana |
 | `servidor/instalar.sh` | Instala Docker, genera `.env` con contraseñas aleatorias y levanta todo |
-| `servidor/registrar_dispositivo.sh` | Registra un sensor real (MAC como ID) y entrega su token |
+| `servidor/registrar_dispositivo.sh` | Registra un sensor (MAC como ID) y entrega su token |
+| `servidor/quitar_simulacion.sh` | Limpia una instancia antigua: quita el simulador y sus datos |
 | `servidor/api/` | API: `POST /api/v1/identificar` y `POST /api/v1/mediciones` |
-| `servidor/postgres/init/` | Esquema relacional y datos de ejemplo |
+| `servidor/postgres/init/` | Esquema relacional y datos iniciales |
 | `servidor/grafana/` | Fuentes de datos y dashboard provisionados |
-| `servidor/simulador/` | Imita el firmware con dos sensores virtuales |
-| `arduino/sensor_iotdc/` | Firmware del sensor (UNO R4 WiFi + SHT31 + PMS5003) |
+| `arduino/sensor_iotdc/` | Firmware para UNO R4 WiFi + SHT31 + PMS5003 |
 
 ## Instalar en una instancia nueva
 
@@ -34,12 +55,24 @@ Arduino ──PUSH HTTP──▶ API (FastAPI :8000) ──▶ PostgreSQL  (empr
    ./instalar.sh
    ```
 3. Abrir `http://IP_PUBLICA:3000` (usuario `admin`; contraseña con `grep GRAFANA_ADMIN_PASSWORD .env`).
-   El simulador empieza a enviar datos de inmediato.
+   Los paneles quedan vacíos hasta que se registre un sensor y empiece a enviar datos.
 
 > Si el repositorio es privado, `git clone` pedirá autenticación: usar un *Personal Access Token*
 > de GitHub como contraseña o instalar `gh` y ejecutar `gh auth login`.
 
-## Registrar un sensor real
+## Registrar el sensor ESP32
+
+1. Cargar el firmware del ESP32 y leer la MAC en el Monitor Serie (115200 baudios):
+   `ID del dispositivo (MAC): AA:BB:...`. También aparece en el portal de configuración.
+2. En el servidor:
+   ```bash
+   cd ~/iotdc/servidor
+   ./registrar_dispositivo.sh AA:BB:CC:DD:EE:FF "Sensor Rack C02" "Sala 1 - Rack C02" 60
+   ```
+3. Abrir el portal del ESP32 (botón BOOT 3 segundos, red `ESP32-Sensor-XXXX`) y guardar la IP del
+   servidor, el token entregado y un ciclo de reporte igual al intervalo registrado.
+
+## Registrar un sensor UNO R4
 
 1. Copiar `arduino/sensor_iotdc/arduino_secrets.example.h` como `arduino_secrets.h` y completar WiFi e IP del servidor.
 2. Instalar en el IDE de Arduino: *Adafruit SHT31 Library*, *ArduinoJson* (v7) y *ArduinoHttpClient*.
@@ -59,13 +92,16 @@ Conexiones: SHT31 a SDA/SCL del cabezal (no al conector Qwiic); TX del PMS5003 a
 cd ~/iotdc/servidor
 sudo docker compose ps                  # estado
 sudo docker compose logs -f api         # registros de la API
-sudo docker compose stop simulador      # detener el simulador cuando haya sensores reales
-git pull && sudo docker compose up -d --build   # actualizar
+git pull && sudo docker compose up -d --build --remove-orphans   # actualizar
 ```
+
+Una instancia instalada cuando existía el simulador se limpia una sola vez con
+`git pull && bash quitar_simulacion.sh`: quita el contenedor, borra los sensores simulados
+(`DC-SENS-001` y `DC-SENS-002`) con sus mediciones y agrega la variable `gas`.
 
 ## Qué NO está en el repositorio
 
 - `servidor/.env` (contraseñas y tokens) y `arduino_secrets.h` (WiFi y token del sensor).
 - Los datos: dispositivos registrados en PostgreSQL y mediciones en InfluxDB.
-  En una instancia nueva hay que volver a registrar los sensores reales (nuevo token) y actualizar
-  `SECRET_API_HOST` en el firmware si la IP pública cambió (una Elastic IP lo evita).
+  En una instancia nueva hay que volver a registrar los sensores (nuevo token) y actualizar la IP del
+  servidor en cada equipo si la IP pública cambió (una Elastic IP lo evita).
