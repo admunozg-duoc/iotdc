@@ -34,6 +34,11 @@ EOF
   chmod 600 .env
 fi
 
+# Clave que escriben los sensores nuevos en su portal para registrarse solos
+if ! grep -q '^REGISTRO_CLAVE=' .env; then
+  echo "REGISTRO_CLAVE=$(openssl rand -hex 6)" >> .env
+fi
+
 # Los contenedores leen estos archivos con otro usuario
 chmod +x postgres/init/02-datos.sh registrar_dispositivo.sh quitar_simulacion.sh
 chmod -R a+rX api postgres grafana docker-compose.yml
@@ -56,4 +61,5 @@ echo
 echo "Listo."
 echo "  Grafana: http://$IP:3000  (usuario admin; contraseña: grep GRAFANA_ADMIN_PASSWORD $(pwd)/.env)"
 echo "  API:     http://$IP:8000/docs"
-echo "  Registrar un sensor real: ./registrar_dispositivo.sh AA:BB:CC:DD:EE:FF \"Nombre\" \"Ubicación\" 60"
+echo "  Clave de registro para los sensores: grep REGISTRO_CLAVE $(pwd)/.env"
+echo "  Registro manual (opcional): ./registrar_dispositivo.sh AA:BB:CC:DD:EE:FF \"Nombre\" \"Ubicación\" 60"

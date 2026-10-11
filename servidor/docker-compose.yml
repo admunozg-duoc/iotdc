@@ -49,6 +49,7 @@ services:
       INFLUX_TOKEN: ${INFLUX_TOKEN}
       INFLUX_ORG: ${INFLUX_ORG}
       INFLUX_BUCKET: ${INFLUX_BUCKET}
+      REGISTRO_CLAVE: ${REGISTRO_CLAVE:-}
     ports:
       - "8000:8000"
     depends_on:

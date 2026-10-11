@@ -38,7 +38,7 @@ Todas las variables son opcionales; el equipo envía solo las que mide:
 | `servidor/instalar.sh` | Instala Docker, genera `.env` con contraseñas aleatorias y levanta todo |
 | `servidor/registrar_dispositivo.sh` | Registra un sensor (MAC como ID) y entrega su token |
 | `servidor/quitar_simulacion.sh` | Limpia una instancia antigua: quita el simulador y sus datos |
-| `servidor/api/` | API: `POST /api/v1/identificar` y `POST /api/v1/mediciones` |
+| `servidor/api/` | API: `POST /api/v1/registrar`, `/api/v1/identificar` y `/api/v1/mediciones` |
 | `servidor/postgres/init/` | Esquema relacional y datos iniciales |
 | `servidor/grafana/` | Fuentes de datos y dashboard provisionados |
 | `arduino/sensor_iotdc/` | Firmware para UNO R4 WiFi + SHT31 + PMS5003 |
@@ -62,15 +62,21 @@ Todas las variables son opcionales; el equipo envía solo las que mide:
 
 ## Registrar el sensor ESP32
 
-1. Cargar el firmware del ESP32 y leer la MAC en el Monitor Serie (115200 baudios):
-   `ID del dispositivo (MAC): AA:BB:...`. También aparece en el portal de configuración.
-2. En el servidor:
-   ```bash
-   cd ~/iotdc/servidor
-   ./registrar_dispositivo.sh AA:BB:CC:DD:EE:FF "Sensor Rack C02" "Sala 1 - Rack C02" 60
-   ```
-3. Abrir el portal del ESP32 (botón BOOT 3 segundos, red `ESP32-Sensor-XXXX`) y guardar la IP del
-   servidor, el token entregado y un ciclo de reporte igual al intervalo registrado.
+El ESP32 se registra solo la primera vez que se conecta; no hace falta entrar al servidor.
+
+1. Obtener la clave de registro del servidor (una sola para todos los sensores):
+   `grep REGISTRO_CLAVE ~/iotdc/servidor/.env`
+2. Abrir el portal del ESP32 (red `ESP32-Sensor-XXXX`; con el equipo ya configurado, botón BOOT
+   3 segundos) y guardar la red WiFi, la IP del servidor, la clave de registro, el ciclo de reporte,
+   el nombre, el ID del cliente (empresa) y la ubicación.
+3. Al conectarse, el equipo llama a `POST /api/v1/registrar` con su MAC y la clave. La API lo crea
+   con esos datos y le entrega su token, que el equipo guarda y usa desde entonces.
+
+Si el servidor deja de reconocer el token (por ejemplo, tras reinstalarlo), el equipo se vuelve a
+registrar solo. Quien conozca la clave de registro puede dar de alta sensores: cambiarla en `.env`
+y reiniciar la API (`sudo docker compose up -d api`) si se filtra.
+
+`./registrar_dispositivo.sh` sigue disponible para registrar un equipo a mano.
 
 ## Registrar un sensor UNO R4
 

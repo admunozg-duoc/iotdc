@@ -1,12 +1,15 @@
 """API IOTDC: recibe la identificación y las mediciones de los sensores ambientales (modo PUSH).
 
 El dispositivo se autentica con las cabeceras X-Dispositivo-Id y X-Dispositivo-Token.
+Un equipo nuevo obtiene su token en POST /api/v1/registrar presentando X-Registro-Clave.
 """
 import hashlib
 import hmac
 import json
 import math
 import os
+import re
+import secrets
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -23,6 +26,9 @@ influx = InfluxDBClient(url=os.environ["INFLUX_URL"], token=os.environ["INFLUX_T
                         org=os.environ["INFLUX_ORG"])
 write_api = influx.write_api(write_options=SYNCHRONOUS)
 BUCKET = os.environ["INFLUX_BUCKET"]
+# Clave compartida que presentan los equipos nuevos para registrarse solos; vacía = alta deshabilitada
+REGISTRO_CLAVE = os.environ.get("REGISTRO_CLAVE", "")
+MAC_VALIDA = re.compile(r"^([0-9A-F]{2}:){5}[0-9A-F]{2}$")
 
 
 @asynccontextmanager
@@ -40,6 +46,14 @@ class Identificacion(BaseModel):
     firmware: Optional[str] = Field(None, max_length=32)
     ip: Optional[str] = Field(None, max_length=45)
     rssi: Optional[int] = Field(None, ge=-120, le=0)
+
+
+class Registro(BaseModel):
+    nombre: str = Field(..., min_length=1, max_length=120)
+    ubicacion: Optional[str] = Field(None, max_length=160)
+    intervalo_seg: int = Field(60, ge=5, le=3600)
+    empresa_id: int = Field(1, ge=1)
+    firmware: Optional[str] = Field(None, max_length=32)
 
 
 class Medicion(BaseModel):
@@ -63,6 +77,33 @@ SQL_PARAMETROS = """
     FROM parametros_medicion p JOIN variables v ON v.codigo = p.variable
     WHERE p.dispositivo_id = %s AND p.habilitado
     ORDER BY p.variable
+"""
+
+
+# Un equipo que se vuelve a registrar conserva su fila y recibe un token nuevo
+SQL_REGISTRAR = """
+    INSERT INTO dispositivos (empresa_id, identificador, token_hash, nombre, ubicacion,
+                              intervalo_envio_seg, firmware, ultimo_contacto)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, now())
+    ON CONFLICT (identificador) DO UPDATE SET
+        empresa_id = EXCLUDED.empresa_id, token_hash = EXCLUDED.token_hash, nombre = EXCLUDED.nombre,
+        ubicacion = EXCLUDED.ubicacion, intervalo_envio_seg = EXCLUDED.intervalo_envio_seg,
+        firmware = COALESCE(EXCLUDED.firmware, dispositivos.firmware), ultimo_contacto = now()
+    RETURNING id
+"""
+
+# Umbrales por defecto (ASHRAE A1 recomendado), los mismos de registrar_dispositivo.sh
+SQL_PARAMETROS_INICIALES = """
+    INSERT INTO parametros_medicion (dispositivo_id, variable, umbral_min, umbral_max)
+    SELECT %s, p.variable, p.umbral_min, p.umbral_max
+    FROM (VALUES
+        ('temperatura', 18.0, 27.0),
+        ('humedad',     20.0, 60.0),
+        ('polvo',       NULL, 25.0),
+        ('punto_rocio', -9.0, 15.0),
+        ('gas',         NULL, NULL)
+    ) AS p(variable, umbral_min, umbral_max)
+    ON CONFLICT (dispositivo_id, variable) DO NOTHING
 """
 
 
@@ -126,6 +167,33 @@ def salud():
     if not influx.ping():
         raise HTTPException(503, "InfluxDB no disponible")
     return {"estado": "ok"}
+
+
+@app.post("/api/v1/registrar", status_code=201)
+def registrar(datos: Registro,
+              x_dispositivo_id: Optional[str] = Header(None),
+              x_registro_clave: Optional[str] = Header(None)):
+    """Alta automática: el equipo presenta la clave de registro y recibe su token (solo esta vez)."""
+    if not REGISTRO_CLAVE:
+        raise HTTPException(403, "El registro automático está deshabilitado en este servidor")
+    if not x_registro_clave or not hmac.compare_digest(x_registro_clave.encode(), REGISTRO_CLAVE.encode()):
+        raise HTTPException(401, "Clave de registro incorrecta")
+    identificador = (x_dispositivo_id or "").upper()
+    if not MAC_VALIDA.match(identificador):
+        raise HTTPException(422, "X-Dispositivo-Id debe ser una MAC con formato AA:BB:CC:DD:EE:FF")
+
+    token = secrets.token_hex(20)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    with pool.connection() as conn:
+        if conn.execute("SELECT 1 FROM empresas WHERE id = %s", (datos.empresa_id,)).fetchone() is None:
+            raise HTTPException(404, f"No existe la empresa con ID {datos.empresa_id}")
+        disp_id = conn.execute(SQL_REGISTRAR, (datos.empresa_id, identificador, token_hash, datos.nombre,
+                                               datos.ubicacion or None, datos.intervalo_seg,
+                                               datos.firmware)).fetchone()["id"]
+        conn.execute(SQL_PARAMETROS_INICIALES, (disp_id,))
+
+    disp, params = autenticar(identificador, token)
+    return {"token": token, **armar_config(disp, params)}
 
 
 @app.post("/api/v1/identificar")
