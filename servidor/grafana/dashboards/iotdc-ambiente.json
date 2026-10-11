@@ -95,8 +95,9 @@
         "unit": "celsius", "decimals": 1, "displayName": "${__field.labels.nombre}",
         "color": { "mode": "thresholds" },
         "thresholds": { "mode": "absolute", "steps": [
-          { "color": "blue", "value": null }, { "color": "green", "value": -9 },
-          { "color": "orange", "value": 15 }, { "color": "red", "value": 17 } ] }
+          { "color": "red", "value": null }, { "color": "orange", "value": 2 },
+          { "color": "green", "value": 5.5 }, { "color": "orange", "value": 15 },
+          { "color": "red", "value": 17 } ] }
       }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "colorMode": "background", "graphMode": "area", "textMode": "value_and_name", "justifyMode": "auto", "orientation": "auto" }
@@ -160,7 +161,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } }
     },
     {
-      "id": 8, "type": "timeseries", "title": "Punto de rocío (°C) — recomendado ASHRAE -9–15 °C",
+      "id": 8, "type": "timeseries", "title": "Punto de rocío (°C) — óptimo ASHRAE 5,5–15 °C; crítico bajo 2 °C o sobre 17 °C",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
       "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
       "targets": [{ "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb-iotdc" },
@@ -168,9 +169,11 @@
       "fieldConfig": { "defaults": {
         "unit": "celsius", "decimals": 1, "displayName": "${__field.labels.nombre}",
         "color": { "mode": "palette-classic" },
-        "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": { "mode": "dashed" } },
+        "custom": { "lineWidth": 2, "fillOpacity": 0, "showPoints": "never", "thresholdsStyle": { "mode": "dashed+area" } },
         "thresholds": { "mode": "absolute", "steps": [
-          { "color": "transparent", "value": null }, { "color": "blue", "value": -9 }, { "color": "red", "value": 15 } ] }
+          { "color": "red", "value": null }, { "color": "orange", "value": 2 },
+          { "color": "green", "value": 5.5 }, { "color": "orange", "value": 15 },
+          { "color": "red", "value": 17 } ] }
       }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } }
     },
