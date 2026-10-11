@@ -4,7 +4,10 @@ services:
   postgres:
     image: postgres:17
     restart: unless-stopped
+    # La hora se guarda como instante; esto fija la zona con que se muestra
+    command: postgres -c timezone=${ZONA_HORARIA:-America/Santiago}
     environment:
+      TZ: ${ZONA_HORARIA:-America/Santiago}
       POSTGRES_DB: iotdc_config
       POSTGRES_USER: iotdc
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -22,6 +25,7 @@ services:
     image: influxdb:2.7
     restart: unless-stopped
     environment:
+      TZ: ${ZONA_HORARIA:-America/Santiago}
       DOCKER_INFLUXDB_INIT_MODE: setup
       DOCKER_INFLUXDB_INIT_USERNAME: admin
       DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_PASSWORD}
@@ -44,6 +48,7 @@ services:
     build: ./api
     restart: unless-stopped
     environment:
+      TZ: ${ZONA_HORARIA:-America/Santiago}
       PG_DSN: postgresql://iotdc:${POSTGRES_PASSWORD}@postgres:5432/iotdc_config
       INFLUX_URL: http://influxdb:8086
       INFLUX_TOKEN: ${INFLUX_TOKEN}
@@ -68,6 +73,8 @@ services:
     image: grafana/grafana:latest
     restart: unless-stopped
     environment:
+      TZ: ${ZONA_HORARIA:-America/Santiago}
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: ${ZONA_HORARIA:-America/Santiago}
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"

@@ -30,6 +30,11 @@ Todas las variables son opcionales; el equipo envía solo las que mide:
 | `polvo` | µg/m³ | PM2.5 del PMS5003 (solo UNO R4) |
 | `rssi` | dBm | Señal WiFi |
 
+La hora de cada medición la pone el servidor al recibirla y la devuelve en `fecha_hora` con la hora de
+Santiago de Chile (por ejemplo `2026-10-11T17:45:10-03:00`). Grafana, PostgreSQL y la API usan la zona
+`America/Santiago`; para otra zona, definir `ZONA_HORARIA` en `servidor/.env`. InfluxDB guarda el instante
+en UTC, como toda base de series de tiempo, y la conversión se hace al mostrarlo.
+
 ## Estructura
 
 | Ruta | Contenido |

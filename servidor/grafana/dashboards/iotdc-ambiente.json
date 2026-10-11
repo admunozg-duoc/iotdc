@@ -2,7 +2,7 @@
   "uid": "iotdc-ambiente",
   "title": "Datacenter - Monitoreo ambiental",
   "tags": ["iotdc"],
-  "timezone": "browser",
+  "timezone": "America/Santiago",
   "refresh": "10s",
   "schemaVersion": 39,
   "time": { "from": "now-30m", "to": "now" },

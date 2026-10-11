@@ -11,8 +11,10 @@ import os
 import re
 import secrets
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse
@@ -23,6 +25,9 @@ from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from pydantic import BaseModel, Field
+
+# Zona horaria con la que se informa la hora de cada medición
+ZONA_HORARIA = ZoneInfo(os.environ.get("TZ", "America/Santiago"))
 
 pool = ConnectionPool(os.environ["PG_DSN"], min_size=1, max_size=10,
                       kwargs={"row_factory": dict_row}, open=False)
@@ -307,7 +312,9 @@ def mediciones(medicion: Medicion,
     if not valores:
         raise HTTPException(422, "La medición no contiene variables habilitadas para este dispositivo")
 
+    momento = datetime.now(ZONA_HORARIA)
     punto = (Point("ambiente")
+             .time(momento)
              .tag("empresa", disp["empresa"])
              .tag("dispositivo", disp["identificador"])
              .tag("nombre", disp["nombre"])
@@ -330,5 +337,6 @@ def mediciones(medicion: Medicion,
             alertas.append({"variable": variable, "valor": valor, "tipo": "alto", "umbral": p["umbral_max"]})
 
     registrar_contacto(disp["id"])
-    return {"estado": "ok", "registrado": valores, "alertas": alertas,
+    return {"estado": "ok", "fecha_hora": momento.isoformat(timespec="seconds"),
+            "registrado": valores, "alertas": alertas,
             "config_version": config["config_version"]}
